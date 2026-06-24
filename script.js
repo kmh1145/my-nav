@@ -1246,15 +1246,6 @@ class App {
     // 主题切换
     document.getElementById('theme-toggle').addEventListener('click', () => this.toggleTheme());
 
-    // 导出数据
-    document.getElementById('export-btn').addEventListener('click', () => this.exportData());
-
-    // 导入数据
-    document.getElementById('import-btn').addEventListener('click', () => {
-      document.getElementById('import-file-input').click();
-    });
-    document.getElementById('import-file-input').addEventListener('change', (e) => this.importData(e));
-
     // GitHub 同步
     document.getElementById('sync-btn').addEventListener('click', () => this.syncWithGitHub());
 
@@ -1266,6 +1257,15 @@ class App {
     document.getElementById('save-github-settings').addEventListener('click', () => this.saveGitHubSettings());
     document.getElementById('test-github-connection').addEventListener('click', () => this.testGitHubConnection());
     document.getElementById('save-all-settings').addEventListener('click', () => this.saveAllSettings());
+
+    // 数据管理按钮
+    document.getElementById('export-btn').addEventListener('click', () => this.exportData());
+    document.getElementById('import-btn').addEventListener('click', () => {
+      document.getElementById('import-file-input').click();
+    });
+    document.getElementById('import-file-input').addEventListener('change', (e) => this.importData(e));
+    document.getElementById('push-to-github-btn').addEventListener('click', () => this.syncWithGitHub());
+    document.getElementById('pull-from-github-btn').addEventListener('click', () => this.syncFromGitHub());
 
     // 背景图设置
     document.getElementById('upload-bg-btn').addEventListener('click', () => {
@@ -1429,7 +1429,9 @@ class App {
         version: '1.0',
         timestamp: new Date().toISOString(),
         source: 'nav-dashboard',
-        data: this.dataManager.data
+        navData: this.dataManager.data,
+        backgroundSettings: this.bgManager.settings,
+        theme: this.dm.getTheme()
       };
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -1460,8 +1462,11 @@ class App {
       try {
         const imported = JSON.parse(e.target.result);
 
+        // 兼容新旧格式
+        const navData = imported.navData || imported.data;
+        
         // 验证数据格式
-        if (!imported.data || !imported.data.categories) {
+        if (!navData || !navData.categories) {
           showToast('无效的备份文件格式', 'error');
           return;
         }
@@ -1471,9 +1476,22 @@ class App {
           return;
         }
 
-        // 恢复数据
-        this.dataManager.data = imported.data;
+        // 恢复导航数据
+        this.dataManager.data = navData;
         this.dataManager.save();
+        
+        // 恢复背景设置（如果有）
+        if (imported.backgroundSettings) {
+          this.bgManager.settings = imported.backgroundSettings;
+          this.bgManager.saveSettings();
+          this.bgManager.apply();
+        }
+        
+        // 恢复主题（如果有）
+        if (imported.theme) {
+          this.dm.setTheme(imported.theme);
+          this.applyTheme(imported.theme);
+        }
 
         // 重新渲染
         this.render();
@@ -1592,10 +1610,18 @@ class App {
 
     try {
       showToast('正在同步到 GitHub...', 'info');
-      
-      // 同步当前数据到 GitHub
-      await this.github.syncToGitHub(this.dataManager.data);
-      
+
+      // 准备同步数据（包含导航数据和背景设置）
+      const syncData = {
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        navData: this.dataManager.data,
+        backgroundSettings: this.bgManager.settings,
+        theme: this.dm.getTheme()
+      };
+
+      await this.github.syncToGitHub(syncData);
+
       showToast('数据已同步到 GitHub！', 'success');
     } catch (error) {
       showToast(`同步失败: ${error.message}`, 'error');
@@ -1610,16 +1636,34 @@ class App {
 
     try {
       showToast('正在从 GitHub 拉取数据...', 'info');
-      
+
       const data = await this.github.syncFromGitHub();
-      
+
       // 确认覆盖
       if (!confirm('从 GitHub 拉取的数据将覆盖本地数据，确定要继续吗？')) {
         return;
       }
 
-      this.dataManager.data = data;
-      this.dataManager.save();
+      // 恢复导航数据
+      if (data.navData) {
+        this.dataManager.data = data.navData;
+        this.dataManager.save();
+      }
+      
+      // 恢复背景设置
+      if (data.backgroundSettings) {
+        this.bgManager.settings = data.backgroundSettings;
+        this.bgManager.saveSettings();
+        this.bgManager.apply();
+      }
+      
+      // 恢复主题
+      if (data.theme) {
+        this.dm.setTheme(data.theme);
+        this.applyTheme(data.theme);
+      }
+      
+      // 重新渲染
       this.render();
 
       showToast('数据已从 GitHub 同步！', 'success');

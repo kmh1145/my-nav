@@ -1201,6 +1201,21 @@ body {
   color: var(--text-secondary);
 }
 
+/* ==================== 数据管理样式 ==================== */
+.data-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.data-actions .btn-primary,
+.data-actions .btn-secondary {
+  flex: 1;
+  min-width: 140px;
+  justify-content: center;
+}
+
+/* ==================== 自定义背景支持 ==================== */
 /* ==================== 自定义背景支持 ==================== */
 body.custom-bg {
   background-image: none !important;

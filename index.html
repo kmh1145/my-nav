@@ -38,12 +38,6 @@
         <span class="theme-icon-dark">🌙</span>
         <span class="theme-icon-light">☀️</span>
       </button>
-      <button class="btn-icon export-btn" id="export-btn" title="导出数据">
-        📤
-      </button>
-      <button class="btn-icon import-btn" id="import-btn" title="导入数据">
-        📥
-      </button>
       <button class="btn-icon sync-btn" id="sync-btn" title="同步到 GitHub">
         🔄
       </button>
@@ -311,6 +305,39 @@
             <span class="range-value" id="bg-opacity-value">50%</span>
           </div>
         </div>
+
+        <!-- 数据管理 -->
+        <div class="settings-section">
+          <h3>💾 数据管理</h3>
+          <p class="settings-desc">备份和恢复你的导航数据</p>
+          
+          <div class="form-group">
+            <label>本地备份</label>
+            <div class="data-actions">
+              <button class="btn-primary" id="export-btn">
+                📤 导出数据
+              </button>
+              <button class="btn-secondary" id="import-btn">
+                📥 导入数据
+              </button>
+              <input type="file" id="import-file-input" accept=".json" hidden>
+            </div>
+            <p class="hint">导出为 JSON 文件，可用于备份或迁移到其他浏览器</p>
+          </div>
+          
+          <div class="form-group">
+            <label>GitHub 同步</label>
+            <div class="data-actions">
+              <button class="btn-primary" id="push-to-github-btn">
+                ⬆️ 推送到 GitHub
+              </button>
+              <button class="btn-secondary" id="pull-from-github-btn">
+                ⬇️ 从 GitHub 拉取
+              </button>
+            </div>
+            <p class="hint">推送：将本地数据同步到 GitHub | 拉取：从 GitHub 恢复数据</p>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" data-close="settings-modal">关闭</button>
@@ -321,9 +348,6 @@
 
   <!-- Toast 通知 -->
   <div class="toast-container" id="toast-container"></div>
-
-  <!-- 隐藏的导入文件输入框 -->
-  <input type="file" id="import-file-input" accept=".json" hidden>
 
   <!-- CDN: SortableJS -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
