@@ -1245,7 +1245,7 @@ class App {
         version: '1.0',
         timestamp: new Date().toISOString(),
         source: 'nav-dashboard',
-        navData: this.dataManager.data,
+        navData: this.data,
         backgroundSettings: this.bgManager.settings,
         theme: this.dm.getTheme()
       };
@@ -1293,8 +1293,8 @@ class App {
         }
 
         // 恢复导航数据
-        this.dataManager.data = navData;
-        this.dataManager.save();
+        this.data = navData;
+        this.dm.save();
         
         // 恢复背景设置（如果有）
         if (imported.backgroundSettings) {
@@ -1328,15 +1328,15 @@ class App {
   async loadDefaultConfig() {
     try {
       // 只在本地存储为空时加载默认配置
-      if (this.dataManager.data.categories.length === 0) {
+      if (this.data.categories.length === 0) {
         const response = await fetch('default-config.json');
         if (response.ok) {
           const config = await response.json();
           
           // 恢复导航数据
           if (config.navData) {
-            this.dataManager.data = config.navData;
-            this.dataManager.save();
+            this.data = config.navData;
+            this.dm.save();
           }
           
           // 恢复背景设置
