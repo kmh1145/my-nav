@@ -773,7 +773,8 @@ body {
 }
 
 .form-group input[type="text"],
-.form-group input[type="url"] {
+.form-group input[type="url"],
+.form-group input[type="password"] {
   width: 100%;
   padding: 10px 14px;
   background: var(--input-bg);
