@@ -39,9 +39,6 @@
         <span class="theme-icon-dark">🌙</span>
         <span class="theme-icon-light">☀️</span>
       </button>
-      <button class="btn-icon sync-btn" id="sync-btn" title="同步到 GitHub">
-        🔄
-      </button>
       <button class="btn-icon settings-btn" id="settings-btn" title="设置 (S)">
         ⚙️
       </button>
@@ -212,49 +209,6 @@
         <button class="btn-close" data-close="settings-modal">&times;</button>
       </div>
       <div class="modal-body">
-        <!-- GitHub 同步设置 -->
-        <div class="settings-section">
-          <h3>🔗 GitHub 同步</h3>
-          <p class="settings-desc">配置 GitHub Token 和仓库，实现跨设备数据同步</p>
-          
-          <div class="form-group">
-            <label for="github-token">GitHub Personal Access Token</label>
-            <div class="input-with-btn">
-              <input type="password" id="github-token" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
-              <button class="btn-secondary" id="verify-token-btn">验证</button>
-            </div>
-            <p class="hint">
-              <a href="https://github.com/settings/tokens/new?scopes=repo&description=Nav Dashboard Sync" target="_blank">
-                点击这里创建 Token
-              </a>，需要 repo 权限
-            </p>
-          </div>
-          
-          <div class="form-group">
-            <label for="github-repo">仓库地址</label>
-            <input type="text" id="github-repo" placeholder="username/my-nav-data">
-            <p class="hint">填写你的 GitHub 仓库（例如：username/nav-data）</p>
-          </div>
-          
-          <div class="form-group">
-            <label for="github-branch">分支名称</label>
-            <input type="text" id="github-branch" placeholder="main" value="main">
-          </div>
-          
-          <div class="form-group">
-            <label>同步状态</label>
-            <div class="sync-status" id="sync-status">
-              <span class="status-dot disconnected"></span>
-              <span class="status-text">未连接</span>
-            </div>
-          </div>
-          
-          <div class="form-actions">
-            <button class="btn-primary" id="save-github-settings">保存配置</button>
-            <button class="btn-secondary" id="test-github-connection">测试连接</button>
-          </div>
-        </div>
-        
         <!-- 背景图设置 -->
         <div class="settings-section">
           <h3>🖼️ 自定义背景</h3>
@@ -323,20 +277,7 @@
               </button>
               <input type="file" id="import-file-input" accept=".json" hidden>
             </div>
-            <p class="hint">导出为 JSON 文件，可用于备份或迁移到其他浏览器</p>
-          </div>
-          
-          <div class="form-group">
-            <label>GitHub 同步</label>
-            <div class="data-actions">
-              <button class="btn-primary" id="push-to-github-btn">
-                ⬆️ 推送到 GitHub
-              </button>
-              <button class="btn-secondary" id="pull-from-github-btn">
-                ⬇️ 从 GitHub 拉取
-              </button>
-            </div>
-            <p class="hint">推送：将本地数据同步到 GitHub | 拉取：从 GitHub 恢复数据</p>
+            <p class="hint">导出为 JSON 文件，可用于备份或迁移到其他浏览器。将导出的文件替换项目中的 default-config.json 即可同步配置。</p>
           </div>
         </div>
       </div>

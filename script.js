@@ -296,184 +296,6 @@ class DataManager {
   }
 }
 
-// ==================== GitHub API ====================
-class GitHubAPI {
-  constructor() {
-    this.storageKey = 'nav_github_settings';
-    this.settings = this.loadSettings();
-    this.isVerified = false;
-    this.userInfo = null;
-  }
-
-  loadSettings() {
-    try {
-      const saved = localStorage.getItem(this.storageKey);
-      return saved ? JSON.parse(saved) : {
-        token: '',
-        repo: '',
-        branch: 'main'
-      };
-    } catch {
-      return { token: '', repo: '', branch: 'main' };
-    }
-  }
-
-  saveSettings() {
-    localStorage.setItem(this.storageKey, JSON.stringify(this.settings));
-  }
-
-  updateSettings(token, repo, branch) {
-    this.settings.token = token;
-    this.settings.repo = repo;
-    this.settings.branch = branch || 'main';
-    this.saveSettings();
-  }
-
-  isConfigured() {
-    return this.settings.token && this.settings.repo;
-  }
-
-  getHeaders() {
-    return {
-      'Authorization': `token ${this.settings.token}`,
-      'Accept': 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json'
-    };
-  }
-
-  async verifyToken() {
-    if (!this.settings.token) {
-      throw new Error('请先输入 GitHub Token');
-    }
-
-    try {
-      const response = await fetch('https://api.github.com/user', {
-        headers: this.getHeaders()
-      });
-
-      if (!response.ok) {
-        throw new Error('Token 验证失败');
-      }
-
-      this.userInfo = await response.json();
-      this.isVerified = true;
-      return this.userInfo;
-    } catch (error) {
-      this.isVerified = false;
-      throw error;
-    }
-  }
-
-  async testConnection() {
-    if (!this.isConfigured()) {
-      throw new Error('请先配置 Token 和仓库地址');
-    }
-
-    try {
-      // 验证 Token
-      await this.verifyToken();
-
-      // 检查仓库是否存在
-      const [owner, repo] = this.settings.repo.split('/');
-      const response = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}`,
-        { headers: this.getHeaders() }
-      );
-
-      if (!response.ok) {
-        throw new Error('仓库不存在或无权访问');
-      }
-
-      return { success: true, user: this.userInfo };
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async getFile(path) {
-    const [owner, repo] = this.settings.repo.split('/');
-    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${this.settings.branch}`;
-
-    const response = await fetch(url, { headers: this.getHeaders() });
-
-    if (response.status === 404) {
-      return null; // 文件不存在
-    }
-
-    if (!response.ok) {
-      throw new Error('获取文件失败');
-    }
-
-    const data = await response.json();
-    return {
-      content: atob(data.content),
-      sha: data.sha
-    };
-  }
-
-  async updateFile(path, content, message = 'Update data') {
-    const [owner, repo] = this.settings.repo.split('/');
-
-    // 获取现有文件的 SHA（如果存在）
-    let sha = null;
-    try {
-      const existing = await this.getFile(path);
-      if (existing) {
-        sha = existing.sha;
-      }
-    } catch {}
-
-    const body = {
-      message,
-      content: btoa(unescape(encodeURIComponent(content))),
-      branch: this.settings.branch
-    };
-
-    if (sha) {
-      body.sha = sha;
-    }
-
-    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: this.getHeaders(),
-      body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-      throw new Error('更新文件失败');
-    }
-
-    return await response.json();
-  }
-
-  async syncToGitHub(data) {
-    if (!this.isConfigured()) {
-      throw new Error('请先配置 GitHub 设置');
-    }
-
-    const content = JSON.stringify(data, null, 2);
-    return await this.updateFile(
-      'nav-data.json',
-      content,
-      '🔄 Sync navigation data'
-    );
-  }
-
-  async syncFromGitHub() {
-    if (!this.isConfigured()) {
-      throw new Error('请先配置 GitHub 设置');
-    }
-
-    const file = await this.getFile('nav-data.json');
-    if (!file) {
-      throw new Error('GitHub 上没有找到数据文件');
-    }
-
-    return JSON.parse(file.content);
-  }
-}
-
 // ==================== 背景图管理 ====================
 class BackgroundManager {
   constructor() {
@@ -850,7 +672,6 @@ class App {
   constructor() {
     this.dm = new DataManager();
     this.data = this.dm.load();
-    this.github = new GitHubAPI();
     this.bgManager = new BackgroundManager();
     this.dashboard = document.getElementById('dashboard');
     this.emptyState = document.getElementById('empty-state');
@@ -877,6 +698,9 @@ class App {
     this.bgManager.apply(); // 应用保存的背景图
     this.render();
     this.bindEvents();
+    
+    // 尝试加载默认配置
+    this.loadDefaultConfig();
   }
 
   // --- 主题 ---
@@ -1246,16 +1070,10 @@ class App {
     // 主题切换
     document.getElementById('theme-toggle').addEventListener('click', () => this.toggleTheme());
 
-    // GitHub 同步
-    document.getElementById('sync-btn').addEventListener('click', () => this.syncWithGitHub());
-
     // 设置
     document.getElementById('settings-btn').addEventListener('click', () => this.openSettings());
 
     // 设置弹窗中的按钮
-    document.getElementById('verify-token-btn').addEventListener('click', () => this.testGitHubConnection());
-    document.getElementById('save-github-settings').addEventListener('click', () => this.saveGitHubSettings());
-    document.getElementById('test-github-connection').addEventListener('click', () => this.testGitHubConnection());
     document.getElementById('save-all-settings').addEventListener('click', () => this.saveAllSettings());
 
     // 数据管理按钮
@@ -1264,9 +1082,7 @@ class App {
       document.getElementById('import-file-input').click();
     });
     document.getElementById('import-file-input').addEventListener('change', (e) => this.importData(e));
-    document.getElementById('push-to-github-btn').addEventListener('click', () => this.syncWithGitHub());
-    document.getElementById('pull-from-github-btn').addEventListener('click', () => this.syncFromGitHub());
-
+    
     // 背景图设置
     document.getElementById('upload-bg-btn').addEventListener('click', () => {
       document.getElementById('bg-file-input').click();
@@ -1509,18 +1325,51 @@ class App {
   }
 
   // --- 设置相关 ---
+  async loadDefaultConfig() {
+    try {
+      // 只在本地存储为空时加载默认配置
+      if (this.dataManager.data.categories.length === 0) {
+        const response = await fetch('default-config.json');
+        if (response.ok) {
+          const config = await response.json();
+          
+          // 恢复导航数据
+          if (config.navData) {
+            this.dataManager.data = config.navData;
+            this.dataManager.save();
+          }
+          
+          // 恢复背景设置
+          if (config.backgroundSettings) {
+            this.bgManager.settings = config.backgroundSettings;
+            this.bgManager.saveSettings();
+            this.bgManager.apply();
+          }
+          
+          // 恢复主题
+          if (config.theme) {
+            this.dm.setTheme(config.theme);
+            this.applyTheme(config.theme);
+          }
+          
+          // 重新渲染
+          this.render();
+          
+          console.log('已加载默认配置');
+        }
+      }
+    } catch (error) {
+      // 静默失败，不影响正常使用
+      console.log('加载默认配置失败:', error);
+    }
+  }
+
   openSettings() {
     this.loadSettingsForm();
     this.openModal('settings-modal');
   }
 
   loadSettingsForm() {
-    // 加载 GitHub 设置
-    document.getElementById('github-token').value = this.github.settings.token;
-    document.getElementById('github-repo').value = this.github.settings.repo;
-    document.getElementById('github-branch').value = this.github.settings.branch;
-    this.updateSyncStatus();
-
     // 加载背景图设置
     const bgSettings = this.bgManager.settings;
     document.getElementById('bg-url').value = bgSettings.imageUrl || '';
@@ -1534,23 +1383,6 @@ class App {
 
     // 更新背景预览
     this.updateBgPreview();
-  }
-
-  updateSyncStatus() {
-    const statusEl = document.getElementById('sync-status');
-    const dot = statusEl.querySelector('.status-dot');
-    const text = statusEl.querySelector('.status-text');
-
-    if (this.github.isVerified) {
-      dot.className = 'status-dot connected';
-      text.textContent = `已连接: ${this.github.userInfo?.login || ''}`;
-    } else if (this.github.isConfigured()) {
-      dot.className = 'status-dot disconnected';
-      text.textContent = '已配置，未验证';
-    } else {
-      dot.className = 'status-dot disconnected';
-      text.textContent = '未连接';
-    }
   }
 
   updateBgPreview() {
@@ -1568,107 +1400,6 @@ class App {
         placeholder.style.display = '';
         placeholder.textContent = '当前：默认渐变';
       }
-    }
-  }
-
-  async saveGitHubSettings() {
-    const token = document.getElementById('github-token').value.trim();
-    const repo = document.getElementById('github-repo').value.trim();
-    const branch = document.getElementById('github-branch').value.trim() || 'main';
-
-    if (!token || !repo) {
-      showToast('请填写 Token 和仓库地址', 'error');
-      return;
-    }
-
-    this.github.updateSettings(token, repo, branch);
-    showToast('GitHub 设置已保存', 'success');
-    this.updateSyncStatus();
-  }
-
-  async testGitHubConnection() {
-    try {
-      // 先保存设置
-      await this.saveGitHubSettings();
-      
-      showToast('正在测试连接...', 'info');
-      const result = await this.github.testConnection();
-      
-      this.updateSyncStatus();
-      showToast(`连接成功！用户: ${result.user.login}`, 'success');
-    } catch (error) {
-      showToast(`连接失败: ${error.message}`, 'error');
-    }
-  }
-
-  async syncWithGitHub() {
-    if (!this.github.isConfigured()) {
-      showToast('请先在设置中配置 GitHub', 'error');
-      this.openSettings();
-      return;
-    }
-
-    try {
-      showToast('正在同步到 GitHub...', 'info');
-
-      // 准备同步数据（包含导航数据和背景设置）
-      const syncData = {
-        version: '1.0',
-        timestamp: new Date().toISOString(),
-        navData: this.dataManager.data,
-        backgroundSettings: this.bgManager.settings,
-        theme: this.dm.getTheme()
-      };
-
-      await this.github.syncToGitHub(syncData);
-
-      showToast('数据已同步到 GitHub！', 'success');
-    } catch (error) {
-      showToast(`同步失败: ${error.message}`, 'error');
-    }
-  }
-
-  async syncFromGitHub() {
-    if (!this.github.isConfigured()) {
-      showToast('请先在设置中配置 GitHub', 'error');
-      return;
-    }
-
-    try {
-      showToast('正在从 GitHub 拉取数据...', 'info');
-
-      const data = await this.github.syncFromGitHub();
-
-      // 确认覆盖
-      if (!confirm('从 GitHub 拉取的数据将覆盖本地数据，确定要继续吗？')) {
-        return;
-      }
-
-      // 恢复导航数据
-      if (data.navData) {
-        this.dataManager.data = data.navData;
-        this.dataManager.save();
-      }
-      
-      // 恢复背景设置
-      if (data.backgroundSettings) {
-        this.bgManager.settings = data.backgroundSettings;
-        this.bgManager.saveSettings();
-        this.bgManager.apply();
-      }
-      
-      // 恢复主题
-      if (data.theme) {
-        this.dm.setTheme(data.theme);
-        this.applyTheme(data.theme);
-      }
-      
-      // 重新渲染
-      this.render();
-
-      showToast('数据已从 GitHub 同步！', 'success');
-    } catch (error) {
-      showToast(`拉取失败: ${error.message}`, 'error');
     }
   }
 
