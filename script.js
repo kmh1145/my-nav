@@ -133,7 +133,7 @@ const DEFAULT_DATA = {
     }
   ],
   settings: {
-    theme: 'dark',
+    theme: 'light',
     categoryOrder: [],
     websiteOrder: {}
   }

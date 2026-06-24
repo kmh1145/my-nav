@@ -132,7 +132,7 @@
       }
     ],
     "settings": {
-      "theme": "dark",
+      "theme": "light",
       "categoryOrder": [],
       "websiteOrder": {}
     }
@@ -142,5 +142,5 @@
     "effect": "cover",
     "opacity": 50
   },
-  "theme": "dark"
+  "theme": "light"
 }
