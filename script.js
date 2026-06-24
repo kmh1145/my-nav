@@ -296,6 +296,278 @@ class DataManager {
   }
 }
 
+// ==================== GitHub API ====================
+class GitHubAPI {
+  constructor() {
+    this.storageKey = 'nav_github_settings';
+    this.settings = this.loadSettings();
+    this.isVerified = false;
+    this.userInfo = null;
+  }
+
+  loadSettings() {
+    try {
+      const saved = localStorage.getItem(this.storageKey);
+      return saved ? JSON.parse(saved) : {
+        token: '',
+        repo: '',
+        branch: 'main'
+      };
+    } catch {
+      return { token: '', repo: '', branch: 'main' };
+    }
+  }
+
+  saveSettings() {
+    localStorage.setItem(this.storageKey, JSON.stringify(this.settings));
+  }
+
+  updateSettings(token, repo, branch) {
+    this.settings.token = token;
+    this.settings.repo = repo;
+    this.settings.branch = branch || 'main';
+    this.saveSettings();
+  }
+
+  isConfigured() {
+    return this.settings.token && this.settings.repo;
+  }
+
+  getHeaders() {
+    return {
+      'Authorization': `token ${this.settings.token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json'
+    };
+  }
+
+  async verifyToken() {
+    if (!this.settings.token) {
+      throw new Error('请先输入 GitHub Token');
+    }
+
+    try {
+      const response = await fetch('https://api.github.com/user', {
+        headers: this.getHeaders()
+      });
+
+      if (!response.ok) {
+        throw new Error('Token 验证失败');
+      }
+
+      this.userInfo = await response.json();
+      this.isVerified = true;
+      return this.userInfo;
+    } catch (error) {
+      this.isVerified = false;
+      throw error;
+    }
+  }
+
+  async testConnection() {
+    if (!this.isConfigured()) {
+      throw new Error('请先配置 Token 和仓库地址');
+    }
+
+    try {
+      // 验证 Token
+      await this.verifyToken();
+
+      // 检查仓库是否存在
+      const [owner, repo] = this.settings.repo.split('/');
+      const response = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}`,
+        { headers: this.getHeaders() }
+      );
+
+      if (!response.ok) {
+        throw new Error('仓库不存在或无权访问');
+      }
+
+      return { success: true, user: this.userInfo };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getFile(path) {
+    const [owner, repo] = this.settings.repo.split('/');
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${this.settings.branch}`;
+
+    const response = await fetch(url, { headers: this.getHeaders() });
+
+    if (response.status === 404) {
+      return null; // 文件不存在
+    }
+
+    if (!response.ok) {
+      throw new Error('获取文件失败');
+    }
+
+    const data = await response.json();
+    return {
+      content: atob(data.content),
+      sha: data.sha
+    };
+  }
+
+  async updateFile(path, content, message = 'Update data') {
+    const [owner, repo] = this.settings.repo.split('/');
+
+    // 获取现有文件的 SHA（如果存在）
+    let sha = null;
+    try {
+      const existing = await this.getFile(path);
+      if (existing) {
+        sha = existing.sha;
+      }
+    } catch {}
+
+    const body = {
+      message,
+      content: btoa(unescape(encodeURIComponent(content))),
+      branch: this.settings.branch
+    };
+
+    if (sha) {
+      body.sha = sha;
+    }
+
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      throw new Error('更新文件失败');
+    }
+
+    return await response.json();
+  }
+
+  async syncToGitHub(data) {
+    if (!this.isConfigured()) {
+      throw new Error('请先配置 GitHub 设置');
+    }
+
+    const content = JSON.stringify(data, null, 2);
+    return await this.updateFile(
+      'nav-data.json',
+      content,
+      '🔄 Sync navigation data'
+    );
+  }
+
+  async syncFromGitHub() {
+    if (!this.isConfigured()) {
+      throw new Error('请先配置 GitHub 设置');
+    }
+
+    const file = await this.getFile('nav-data.json');
+    if (!file) {
+      throw new Error('GitHub 上没有找到数据文件');
+    }
+
+    return JSON.parse(file.content);
+  }
+}
+
+// ==================== 背景图管理 ====================
+class BackgroundManager {
+  constructor() {
+    this.storageKey = 'nav_background_settings';
+    this.settings = this.loadSettings();
+  }
+
+  loadSettings() {
+    try {
+      const saved = localStorage.getItem(this.storageKey);
+      return saved ? JSON.parse(saved) : {
+        imageUrl: '',
+        effect: 'cover',
+        opacity: 50
+      };
+    } catch {
+      return { imageUrl: '', effect: 'cover', opacity: 50 };
+    }
+  }
+
+  saveSettings() {
+    localStorage.setItem(this.storageKey, JSON.stringify(this.settings));
+  }
+
+  updateSettings(imageUrl, effect, opacity) {
+    this.settings.imageUrl = imageUrl || '';
+    this.settings.effect = effect || 'cover';
+    this.settings.opacity = opacity !== undefined ? opacity : 50;
+    this.saveSettings();
+    this.apply();
+  }
+
+  apply() {
+    const body = document.body;
+    
+    if (this.settings.imageUrl) {
+      body.classList.add('custom-bg');
+      body.style.setProperty('--custom-bg-image', `url(${this.settings.imageUrl})`);
+      
+      switch (this.settings.effect) {
+        case 'cover':
+          body.style.setProperty('--custom-bg-size', 'cover');
+          body.style.setProperty('--custom-bg-repeat', 'no-repeat');
+          break;
+        case 'contain':
+          body.style.setProperty('--custom-bg-size', 'contain');
+          body.style.setProperty('--custom-bg-repeat', 'no-repeat');
+          break;
+        case 'repeat':
+          body.style.setProperty('--custom-bg-size', 'auto');
+          body.style.setProperty('--custom-bg-repeat', 'repeat');
+          break;
+      }
+      
+      body.style.setProperty('--custom-bg-opacity', this.settings.opacity / 100);
+    } else {
+      body.classList.remove('custom-bg');
+      body.style.removeProperty('--custom-bg-image');
+      body.style.removeProperty('--custom-bg-size');
+      body.style.removeProperty('--custom-bg-repeat');
+      body.style.removeProperty('--custom-bg-opacity');
+    }
+  }
+
+  setImageFromFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.updateSettings(e.target.result, this.settings.effect, this.settings.opacity);
+        resolve(e.target.result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  setImageFromUrl(url) {
+    return new Promise((resolve, reject) => {
+      // 验证图片是否可以加载
+      const img = new Image();
+      img.onload = () => {
+        this.updateSettings(url, this.settings.effect, this.settings.opacity);
+        resolve(url);
+      };
+      img.onerror = () => reject(new Error('图片加载失败'));
+      img.src = url;
+    });
+  }
+
+  clear() {
+    this.updateSettings('', this.settings.effect, this.settings.opacity);
+  }
+}
+
 // ==================== 粒子系统 ====================
 class ParticleSystem {
   constructor(canvas) {
@@ -578,6 +850,8 @@ class App {
   constructor() {
     this.dm = new DataManager();
     this.data = this.dm.load();
+    this.github = new GitHubAPI();
+    this.bgManager = new BackgroundManager();
     this.dashboard = document.getElementById('dashboard');
     this.emptyState = document.getElementById('empty-state');
     this.searchInput = document.getElementById('search-input');
@@ -600,6 +874,7 @@ class App {
     this.particles.start();
 
     // 渲染 & 绑定事件
+    this.bgManager.apply(); // 应用保存的背景图
     this.render();
     this.bindEvents();
   }
@@ -980,6 +1255,38 @@ class App {
     });
     document.getElementById('import-file-input').addEventListener('change', (e) => this.importData(e));
 
+    // GitHub 同步
+    document.getElementById('sync-btn').addEventListener('click', () => this.syncWithGitHub());
+
+    // 设置
+    document.getElementById('settings-btn').addEventListener('click', () => this.openSettings());
+
+    // 设置弹窗中的按钮
+    document.getElementById('verify-token-btn').addEventListener('click', () => this.testGitHubConnection());
+    document.getElementById('save-github-settings').addEventListener('click', () => this.saveGitHubSettings());
+    document.getElementById('test-github-connection').addEventListener('click', () => this.testGitHubConnection());
+    document.getElementById('save-all-settings').addEventListener('click', () => this.saveAllSettings());
+
+    // 背景图设置
+    document.getElementById('upload-bg-btn').addEventListener('click', () => {
+      document.getElementById('bg-file-input').click();
+    });
+    document.getElementById('bg-file-input').addEventListener('change', (e) => {
+      if (e.target.files[0]) {
+        this.uploadBackground(e.target.files[0]);
+      }
+    });
+    document.getElementById('apply-bg-url').addEventListener('click', () => this.applyBackgroundUrl());
+    document.getElementById('clear-bg-btn').addEventListener('click', () => this.clearBackground());
+
+    // 背景效果和透明度
+    document.querySelectorAll('input[name="bg-effect"]').forEach(radio => {
+      radio.addEventListener('change', (e) => this.updateBgEffect(e.target.value));
+    });
+    document.getElementById('bg-opacity').addEventListener('input', (e) => {
+      this.updateBgOpacity(e.target.value);
+    });
+
     // 添加分类
     document.getElementById('add-category-btn').addEventListener('click', () => this.openAddCategory());
 
@@ -1181,6 +1488,207 @@ class App {
       }
     };
     reader.readAsText(file);
+  }
+
+  // --- 设置相关 ---
+  openSettings() {
+    this.loadSettingsForm();
+    this.openModal('settings-modal');
+  }
+
+  loadSettingsForm() {
+    // 加载 GitHub 设置
+    document.getElementById('github-token').value = this.github.settings.token;
+    document.getElementById('github-repo').value = this.github.settings.repo;
+    document.getElementById('github-branch').value = this.github.settings.branch;
+    this.updateSyncStatus();
+
+    // 加载背景图设置
+    const bgSettings = this.bgManager.settings;
+    document.getElementById('bg-url').value = bgSettings.imageUrl || '';
+    document.getElementById('bg-opacity').value = bgSettings.opacity;
+    document.getElementById('bg-opacity-value').textContent = bgSettings.opacity + '%';
+    
+    // 设置背景效果单选按钮
+    document.querySelectorAll('input[name="bg-effect"]').forEach(radio => {
+      radio.checked = radio.value === bgSettings.effect;
+    });
+
+    // 更新背景预览
+    this.updateBgPreview();
+  }
+
+  updateSyncStatus() {
+    const statusEl = document.getElementById('sync-status');
+    const dot = statusEl.querySelector('.status-dot');
+    const text = statusEl.querySelector('.status-text');
+
+    if (this.github.isVerified) {
+      dot.className = 'status-dot connected';
+      text.textContent = `已连接: ${this.github.userInfo?.login || ''}`;
+    } else if (this.github.isConfigured()) {
+      dot.className = 'status-dot disconnected';
+      text.textContent = '已配置，未验证';
+    } else {
+      dot.className = 'status-dot disconnected';
+      text.textContent = '未连接';
+    }
+  }
+
+  updateBgPreview() {
+    const preview = document.getElementById('bg-preview');
+    const placeholder = preview.querySelector('.bg-preview-placeholder');
+    
+    if (this.bgManager.settings.imageUrl) {
+      preview.classList.add('has-image');
+      preview.style.backgroundImage = `url(${this.bgManager.settings.imageUrl})`;
+      if (placeholder) placeholder.style.display = 'none';
+    } else {
+      preview.classList.remove('has-image');
+      preview.style.backgroundImage = '';
+      if (placeholder) {
+        placeholder.style.display = '';
+        placeholder.textContent = '当前：默认渐变';
+      }
+    }
+  }
+
+  async saveGitHubSettings() {
+    const token = document.getElementById('github-token').value.trim();
+    const repo = document.getElementById('github-repo').value.trim();
+    const branch = document.getElementById('github-branch').value.trim() || 'main';
+
+    if (!token || !repo) {
+      showToast('请填写 Token 和仓库地址', 'error');
+      return;
+    }
+
+    this.github.updateSettings(token, repo, branch);
+    showToast('GitHub 设置已保存', 'success');
+    this.updateSyncStatus();
+  }
+
+  async testGitHubConnection() {
+    try {
+      // 先保存设置
+      await this.saveGitHubSettings();
+      
+      showToast('正在测试连接...', 'info');
+      const result = await this.github.testConnection();
+      
+      this.updateSyncStatus();
+      showToast(`连接成功！用户: ${result.user.login}`, 'success');
+    } catch (error) {
+      showToast(`连接失败: ${error.message}`, 'error');
+    }
+  }
+
+  async syncWithGitHub() {
+    if (!this.github.isConfigured()) {
+      showToast('请先在设置中配置 GitHub', 'error');
+      this.openSettings();
+      return;
+    }
+
+    try {
+      showToast('正在同步到 GitHub...', 'info');
+      
+      // 同步当前数据到 GitHub
+      await this.github.syncToGitHub(this.dataManager.data);
+      
+      showToast('数据已同步到 GitHub！', 'success');
+    } catch (error) {
+      showToast(`同步失败: ${error.message}`, 'error');
+    }
+  }
+
+  async syncFromGitHub() {
+    if (!this.github.isConfigured()) {
+      showToast('请先在设置中配置 GitHub', 'error');
+      return;
+    }
+
+    try {
+      showToast('正在从 GitHub 拉取数据...', 'info');
+      
+      const data = await this.github.syncFromGitHub();
+      
+      // 确认覆盖
+      if (!confirm('从 GitHub 拉取的数据将覆盖本地数据，确定要继续吗？')) {
+        return;
+      }
+
+      this.dataManager.data = data;
+      this.dataManager.save();
+      this.render();
+
+      showToast('数据已从 GitHub 同步！', 'success');
+    } catch (error) {
+      showToast(`拉取失败: ${error.message}`, 'error');
+    }
+  }
+
+  // --- 背景图相关 ---
+  async uploadBackground(file) {
+    try {
+      await this.bgManager.setImageFromFile(file);
+      this.updateBgPreview();
+      showToast('背景图片已更新', 'success');
+    } catch (error) {
+      showToast('图片上传失败', 'error');
+    }
+  }
+
+  async applyBackgroundUrl() {
+    const url = document.getElementById('bg-url').value.trim();
+    
+    if (!url) {
+      showToast('请输入图片 URL', 'error');
+      return;
+    }
+
+    try {
+      showToast('正在加载图片...', 'info');
+      await this.bgManager.setImageFromUrl(url);
+      this.updateBgPreview();
+      showToast('背景图片已更新', 'success');
+    } catch (error) {
+      showToast('图片加载失败，请检查 URL', 'error');
+    }
+  }
+
+  clearBackground() {
+    this.bgManager.clear();
+    this.updateBgPreview();
+    document.getElementById('bg-url').value = '';
+    showToast('背景已恢复默认', 'success');
+  }
+
+  updateBgEffect(effect) {
+    this.bgManager.updateSettings(
+      this.bgManager.settings.imageUrl,
+      effect,
+      this.bgManager.settings.opacity
+    );
+  }
+
+  updateBgOpacity(opacity) {
+    document.getElementById('bg-opacity-value').textContent = opacity + '%';
+    this.bgManager.updateSettings(
+      this.bgManager.settings.imageUrl,
+      this.bgManager.settings.effect,
+      parseInt(opacity)
+    );
+  }
+
+  saveAllSettings() {
+    // 保存 GitHub 设置
+    this.saveGitHubSettings();
+    
+    // 保存背景图设置（已经在 change 事件中自动保存）
+    
+    showToast('所有设置已保存', 'success');
+    this.closeModal('settings-modal');
   }
 }
 
