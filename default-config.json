@@ -1,14 +1,49 @@
 {
   "version": "1.0",
-  "timestamp": "2026-06-24T00:00:00.000Z",
+  "timestamp": "2026-06-24T09:14:35.353Z",
   "source": "nav-dashboard",
   "navData": {
     "categories": [
+      {
+        "id": "cat_default_4",
+        "name": "AI & 效率",
+        "emoji": "🤖",
+        "websites": [
+          {
+            "id": "web_default_10",
+            "name": "ChatGPT",
+            "url": "https://chatgpt.com",
+            "desc": "AI 对话助手",
+            "icon": null
+          },
+          {
+            "id": "web_default_11",
+            "name": "Stack Overflow",
+            "url": "https://stackoverflow.com",
+            "desc": "开发者问答社区",
+            "icon": null
+          },
+          {
+            "id": "web_default_12",
+            "name": "Dev.to",
+            "url": "https://dev.to",
+            "desc": "开发者博客社区",
+            "icon": null
+          }
+        ]
+      },
       {
         "id": "cat_default_1",
         "name": "我的网站",
         "emoji": "⭐",
         "websites": [
+          {
+            "id": "web_default_2",
+            "name": "宁宁云",
+            "url": "https://nnyunidc.com",
+            "desc": "云服务与 IDC",
+            "icon": null
+          },
           {
             "id": "web_default_1",
             "name": "Cloudflare",
@@ -17,15 +52,8 @@
             "icon": null
           },
           {
-            "id": "web_default_2",
-            "name": "NNYunIDC",
-            "url": "https://nnyunidc.com",
-            "desc": "云服务与 IDC",
-            "icon": null
-          },
-          {
             "id": "web_default_3",
-            "name": "Stat Monitor",
+            "name": "宁宁云探针",
             "url": "https://stat.080920.xyz",
             "desc": "状态监控面板",
             "icon": null
@@ -61,6 +89,20 @@
         ]
       },
       {
+        "id": "cat_default_5",
+        "name": "平台服务",
+        "emoji": "☁️",
+        "websites": [
+          {
+            "id": "web_default_13",
+            "name": "Vercel",
+            "url": "https://vercel.com",
+            "desc": "前端部署平台",
+            "icon": null
+          }
+        ]
+      },
+      {
         "id": "cat_default_3",
         "name": "文档参考",
         "emoji": "📚",
@@ -84,48 +126,6 @@
             "name": "NPM",
             "url": "https://www.npmjs.com",
             "desc": "Node.js 包管理",
-            "icon": null
-          }
-        ]
-      },
-      {
-        "id": "cat_default_4",
-        "name": "AI & 效率",
-        "emoji": "🤖",
-        "websites": [
-          {
-            "id": "web_default_10",
-            "name": "ChatGPT",
-            "url": "https://chatgpt.com",
-            "desc": "AI 对话助手",
-            "icon": null
-          },
-          {
-            "id": "web_default_11",
-            "name": "Stack Overflow",
-            "url": "https://stackoverflow.com",
-            "desc": "开发者问答社区",
-            "icon": null
-          },
-          {
-            "id": "web_default_12",
-            "name": "Dev.to",
-            "url": "https://dev.to",
-            "desc": "开发者博客社区",
-            "icon": null
-          }
-        ]
-      },
-      {
-        "id": "cat_default_5",
-        "name": "平台服务",
-        "emoji": "☁️",
-        "websites": [
-          {
-            "id": "web_default_13",
-            "name": "Vercel",
-            "url": "https://vercel.com",
-            "desc": "前端部署平台",
             "icon": null
           }
         ]
